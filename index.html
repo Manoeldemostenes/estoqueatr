@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CONTROLE DE ESTOQUE</title>
+
+<!-- Bibliotecas de PDF (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+// Fallback: se o CDN falhar, tenta arquivos locais na pasta "libs/" (opcional)
+if(!(window.jspdf&&window.jspdf.jsPDF)){
+  document.write('<script src="libs/jspdf.umd.min.js"><\/script>');
+}
+if(!(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable)){
+  document.write('<script src="libs/jspdf.plugin.autotable.min.js"><\/script>');
+}
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif}
+input,textarea,select{text-transform:uppercase}
+:root{--bg:#0a0a0a;--panel:#141414;--panel2:#1c1c1c;--line:#2a2a2a;--txt:#f2f2f2;--muted:#9a9a9a;--accent:#e8b923;--red:#ff4d4d;--yellow:#ffd11a;--green:#3ddc74}
+body{background:var(--bg);color:var(--txt);display:flex;min-height:100vh}
+/* SIDEBAR */
+.sidebar{width:250px;background:linear-gradient(180deg,#111,#000);border-right:1px solid var(--line);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0}
+.brand{padding:26px 22px;border-bottom:1px solid var(--line)}
+.brand h1{font-size:19px;letter-spacing:1px;color:#fff}
+.brand span{font-size:11px;color:var(--muted);letter-spacing:2px}
+.menu{flex:1;padding:14px 0;overflow-y:auto}
+.menu button{width:100%;background:none;border:none;color:var(--muted);text-align:left;padding:15px 22px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:12px;border-left:3px solid transparent;transition:.15s;text-transform:uppercase;letter-spacing:.5px}
+.menu button:hover{background:var(--panel2);color:#fff}
+.menu button.active{background:var(--panel2);color:var(--accent);border-left:3px solid var(--accent)}
+.menu button .ic{font-size:17px;width:22px;text-align:center}
+.foot{padding:16px 22px;border-top:1px solid var(--line);font-size:11px;color:#555}
+/* MAIN */
+.main{margin-left:250px;flex:1;padding:30px 40px;width:calc(100% - 250px)}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px}
+.topbar h2{font-size:22px;letter-spacing:.5px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.card .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.card .val{font-size:30px;font-weight:700;margin-top:6px}
+.card.red .val{color:var(--red)}.card.yellow .val{color:var(--yellow)}.card.green .val{color:var(--green)}
+/* TABLE */
+.toolbar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 14px;color:var(--txt);font-size:14px}
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#000;color:var(--accent);text-align:left;padding:13px 16px;text-transform:uppercase;letter-spacing:.5px;font-size:12px;border-bottom:1px solid var(--line)}
+td{padding:12px 16px;border-bottom:1px solid var(--line);color:#ddd}
+tbody tr:hover{background:var(--panel2)}
+.status{font-weight:700;font-size:12px}
+.st-red{color:var(--red)}.st-yellow{color:var(--yellow)}.st-green{color:var(--green)}
+.qty-pill{display:inline-block;min-width:34px;text-align:center;background:#000;border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-weight:700}
+/* BUTTONS */
+.btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
+.btn:hover{filter:brightness(1.08)}
+.btn.sec{background:var(--panel2);color:#fff;border:1px solid var(--line)}
+.btn.danger{background:var(--red);color:#fff}
+.btn.small{padding:7px 12px;font-size:11px}
+/* FORM */
+.form{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:26px;max-width:640px}
+.form .row{margin-bottom:18px}
+.form label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
+.form input,.form select{width:100%;background:#000;border:1px solid var(--line);border-radius:8px;padding:12px 14px;color:#fff;font-size:14px}
+.form input:focus,.form select:focus{outline:none;border-color:var(--accent)}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:50}
+.overlay.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px;max-width:440px;width:90%;text-align:center}
+.modal h3{margin-bottom:10px;font-size:20px}
+.modal p{color:var(--muted);font-size:14px;margin-bottom:24px}
+.modal .actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;bottom:26px;right:26px;background:var(--green);color:#000;padding:14px 22px;border-radius:8px;font-weight:700;font-size:13px;z-index:99;opacity:0;transform:translateY(20px);transition:.3s;text-transform:uppercase}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{background:var(--red);color:#fff}
+.hidden{display:none}
+@media(max-width:820px){.cards{grid-template-columns:repeat(2,1fr)}.sidebar{width:66px}.brand h1,.brand span,.menu button span.txt,.foot{display:none}.menu button{justify-content:center;padding:15px 0}.main{margin-left:66px;width:calc(100% - 66px);padding:20px}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand"><h1>ESTOQUE</h1><span>CONTROLE DE ESTOQUE</span></div>
+  <nav class="menu">
+    <button data-view="inicio" class="active"><span class="ic">▣</span><span class="txt">INÍCIO</span></button>
+    <button data-view="cadastro"><span class="ic">➕</span><span class="txt">CADASTRO DE PRODUTO</span></button>
+    <button data-view="entrada"><span class="ic">⬇</span><span class="txt">ENTRADA DE PRODUTO</span></button>
+    <button data-view="saida"><span class="ic">⬆</span><span class="txt">SAÍDA DE PRODUTO</span></button>
+    <button data-view="relatorio"><span class="ic">▤</span><span class="txt">RELATÓRIO</span></button>
+  </nav>
+  <div class="foot">V-26 · GESTÃO DE ESTOQUE</div>
+</div>
+
+<div class="main">
+  <!-- INICIO -->
+  <section id="view-inicio">
+    <div class="topbar"><h2>ESTOQUE ATUAL</h2><button class="btn" onclick="abrirRelatorio()">GERAR RELATÓRIO</button></div>
+    <div class="cards">
+      <div class="card"><div class="lbl">TOTAL DE ITENS</div><div class="val" id="c-total">0</div></div>
+      <div class="card red"><div class="lbl">ABAIXO DO MÍNIMO</div><div class="val" id="c-red">0</div></div>
+      <div class="card yellow"><div class="lbl">PRÓXIMO DO MÍNIMO</div><div class="val" id="c-yellow">0</div></div>
+      <div class="card green"><div class="lbl">OK</div><div class="val" id="c-green">0</div></div>
+    </div>
+    <div class="toolbar">
+      <input class="search" id="search" placeholder="BUSCAR PRODUTO OU CATEGORIA..." oninput="renderTable()">
+      <select class="search" style="flex:0 0 220px" id="fcat" onchange="renderTable()"><option value="">TODAS AS CATEGORIAS</option></select>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>PRODUTO</th><th>CATEGORIA</th><th>QUANTIDADE</th><th>STATUS</th><th>AÇÕES</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CADASTRO -->
+  <section id="view-cadastro" class="hidden">
+    <div class="topbar"><h2>CADASTRO DE PRODUTO</h2></div>
+    <div class="form">
+      <div class="row"><label>NOME DO PRODUTO</label><input id="f-nome" placeholder="EX: PARAFUSO SEXTAVADO"></div>
+      <div class="row"><label>CATEGORIA</label><select id="f-cat"></select></div>
+      <div class="row"><label>QUANTIDADE INICIAL</label><input id="f-qtd" type="number" min="0" value="0"></div>
+      <div style="display:flex;gap:12px"><button class="btn" onclick="cadastrar()">SALVAR PRODUTO</button><button class="btn sec" onclick="go('inicio')">CANCELAR</button></div>
+    </div>
+    <div class="form" style="margin-top:20px">
+      <h3 style="font-size:16px;margin-bottom:16px;letter-spacing:.5px">CADASTRAR CATEGORIA</h3>
+      <div class="row"><label>NOVA CATEGORIA</label><input id="f-newcat" placeholder="EX: ESCRITÓRIO"></div>
+      <div style="display:flex;gap:12px"><button class="btn" onclick="addCat()">SALVAR CATEGORIA</button></div>
+      <div class="hint" id="catlist-info" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <!-- ENTRADA -->
+  <section id="view-entrada" class="hidden">
+    <div class="topbar"><h2>ENTRADA DE PRODUTO</h2></div>
+    <div class="form">
+      <div class="row"><label>PRODUTO</label><select id="e-prod"></select></div>
+      <div class="row"><label>QUANTIDADE A ADICIONAR</label><input id="e-qtd" type="number" min="1" value="1"></div>
+      <div class="hint" id="e-info"></div>
+      <div style="display:flex;gap:12px;margin-top:14px"><button class="btn" onclick="movimentar(1)">REGISTRAR ENTRADA</button><button class="btn sec" onclick="go('inicio')">CANCELAR</button></div>
+    </div>
+  </section>
+
+  <!-- SAIDA -->
+  <section id="view-saida" class="hidden">
+    <div class="topbar"><h2>SAÍDA DE PRODUTO</h2></div>
+    <div class="form">
+      <div class="row"><label>PRODUTO</label><select id="s-prod"></select></div>
+      <div class="row"><label>QUANTIDADE A RETIRAR</label><input id="s-qtd" type="number" min="1" value="1"></div>
+      <div class="hint" id="s-info"></div>
+      <div style="display:flex;gap:12px;margin-top:14px"><button class="btn danger" onclick="movimentar(-1)">REGISTRAR SAÍDA</button><button class="btn sec" onclick="go('inicio')">CANCELAR</button></div>
+    </div>
+  </section>
+
+  <!-- RELATORIO -->
+  <section id="view-relatorio" class="hidden">
+    <div class="topbar"><h2>RELATÓRIO DE ESTOQUE</h2></div>
+    <div class="form" style="max-width:100%">
+      <p style="color:var(--muted);margin-bottom:18px">GERE UM RELATÓRIO COMPLETO DO SEU ESTOQUE ATUAL COM O STATUS DE CADA PRODUTO.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn" onclick="abrirRelatorio()">GERAR RELATÓRIO</button>
+        <button class="btn sec" onclick="go('inicio')">VOLTAR</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- MODAL RELATORIO -->
+<div class="overlay" id="ov-rel">
+  <div class="modal">
+    <h3>RELATÓRIO DE ESTOQUE</h3>
+    <p>O QUE VOCÊ DESEJA FAZER COM O RELATÓRIO?</p>
+    <div class="actions">
+      <button class="btn" onclick="gerarPDF('print')">IMPRIMIR</button>
+      <button class="btn sec" onclick="gerarPDF('view')">VISUALIZAR</button>
+      <button class="btn sec" onclick="gerarPDF('download')">BAIXAR PDF</button>
+      <button class="btn sec" onclick="fecharModal()">CANCELAR</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SEED = [
+{"produto":"SACO PARA LIXO FD","quantidade":4,"categoria":"LIMPEZA"},
+{"produto":"LIMPA VIDROS 5LT","quantidade":2,"categoria":"LIMPEZA"},
+{"produto":"FLANELA","quantidade":1,"categoria":"LIMPEZA"},
+{"produto":"PANO DE PRATO","quantidade":1,"categoria":"LIMPEZA"},
+{"produto":"CLORO 5L","quantidade":4,"categoria":"LIMPEZA"},
+{"produto":"DESINFETANTE 5L","quantidade":2,"categoria":"LIMPEZA"},
+{"produto":"VORAZ 5L","quantidade":4,"categoria":"LIMPEZA"},
+{"produto":"DETERGENTE 5L","quantidade":4,"categoria":"LIMPEZA"},
+{"produto":"PERFEX ROLO GRANDE","quantidade":1,"categoria":"LIMPEZA"},
+{"produto":"ESPONJA P/ LAVAR PRATO","quantidade":9,"categoria":"LIMPEZA"},
+{"produto":"SABÃO EM PÓ","quantidade":4,"categoria":"LIMPEZA"},
+{"produto":"NAFTALINA (SAQUINHOS)","quantidade":6,"categoria":"LIMPEZA"},
+{"produto":"PAPEL TOALHA PACOTE COM 4 MAÇOS","quantidade":3,"categoria":"LIMPEZA"},
+{"produto":"PASTRILHA SANITÁRIA","quantidade":7,"categoria":"LIMPEZA"},
+{"produto":"SABONETE LÍQUIDO 5L","quantidade":2,"categoria":"LIMPEZA"},
+{"produto":"CORREIA DE ACESSÓRIO","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"ÓLEO KARTER 80 (LITRO)","quantidade":8,"categoria":"MANUTENÇÃO"},
+{"produto":"ÓLEO 15W40","quantidade":5,"categoria":"MANUTENÇÃO"},
+{"produto":"ÓLEO 10W40","quantidade":0,"categoria":"MANUTENÇÃO"},
+{"produto":"ÓLEO 68","quantidade":6,"categoria":"MANUTENÇÃO"},
+{"produto":"ÓLEO DOT4","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"CHAVE 24","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"CHAVE 32","quantidade":3,"categoria":"MANUTENÇÃO"},
+{"produto":"CHAVE 36","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"CHAVE 28","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"CHAVE GRIFO 18","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"DISCO DE CORTE STARRET 7”","quantidade":3,"categoria":"MANUTENÇÃO"},
+{"produto":"DISCO DE CORTE STARRET 4”","quantidade":4,"categoria":"MANUTENÇÃO"},
+{"produto":"ELETRODOS 2,50MM","quantidade":15,"categoria":"MANUTENÇÃO"},
+{"produto":"MÁSCARA DE SOLDA","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"ESMERILHADEIRA GRANDE","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"COLHER DE PEDREIRO","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"LÂMPADA HALÓGENA AUTOMOTIVA DO TIPO H4","quantidade":4,"categoria":"MANUTENÇÃO"},
+{"produto":"LÂMPADA AUTOMOTIVA PARA SINALIZAÇÃO DE DIREÇÃO (SETA)","quantidade":9,"categoria":"MANUTENÇÃO"},
+{"produto":"LÂMPADA HALÓGENA AUTOMOTIVA DO TIPO H7","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"LÂMPADAS AUTOMOTIVAS MINIATURA DE ESMAGAMENTO","quantidade":25,"categoria":"MANUTENÇÃO"},
+{"produto":"LANTERNA DE CABINE","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"LANTERNA LATERAL CIRCULAR","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"UNIÃO RETA INSTANTÂNEA","quantidade":23,"categoria":"MANUTENÇÃO"},
+{"produto":"SOQUETE (OU PORTA-LÂMPADA) PARA LÂMPADA PINGO/PINGÃO","quantidade":4,"categoria":"MANUTENÇÃO"},
+{"produto":"COTOVELO UNIÃO INSTANTÂNEO","quantidade":6,"categoria":"MANUTENÇÃO"},
+{"produto":"REFIL DE FILTRO DE COMBUSTÍVEL DIESEL","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"ELEMENTO FILTRANTE HIDRÁULICO DE TELA METÁLICA","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"TINTA MARROM 3,6 LT","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"TINTA PRETO 3,6 LT","quantidade":7,"categoria":"MANUTENÇÃO"},
+{"produto":"TINTA VERDE FOLHA 3,6 LT","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"TINTA CINZA ESCURO 3,6 LT","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"TINTA AMARELO 3,6 LT","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"ZARCÃO 3,6 LT","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"TINTA LARANJA","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"TINER 5 LT","quantidade":3,"categoria":"MANUTENÇÃO"},
+{"produto":"LANTERNA DELIMITADORA DE TETO RETA","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"COMPRESSOR PARA LAVA JATO","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"COMPRESSOR PARA PINTURA E ENCHER PNEUS","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"TAMPA DO RESERVATÓRIO DE ÁGUA DO V-26","quantidade":0,"categoria":"MANUTENÇÃO"},
+{"produto":"HASTE DO PARABRISA V-25","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"ALICATE DESCASCADOR","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"FAROL DE TRABALHO","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"PINCEL","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"MANGUEIRA DE CP","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"ARAME","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"CUICAS","quantidade":2,"categoria":"MANUTENÇÃO"},
+{"produto":"FAROL DO IMPLEMENTO","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"CARIMBO ELÉTRICO PARA PNEUS","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"FERRO HIDRÁULICO","quantidade":1,"categoria":"MANUTENÇÃO"},
+{"produto":"LONA PRA CAMINHÃO","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"CREME DE PROTEÇÃO PARA PELE (LUVA QUÍMICA)","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"ÓLEO KARTER TASSA (COMPRESSOR LAVA JATO)","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"FITA DE IMPRESSÃO PARA TACÓGRAFO","quantidade":0,"categoria":"OPERAÇÃO"},
+{"produto":"TACÓGRAFOS 7 DIAS (CX)","quantidade":4,"categoria":"OPERAÇÃO"},
+{"produto":"CONE LARANJA 0,75CM PARA SINALIZAÇÃO","quantidade":4,"categoria":"OPERAÇÃO"},
+{"produto":"CINTA COM CATRACA PARA AMARRAÇÃO DE CARGA","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"CINTA SEM CATRACA PARA AMARRAÇÃO","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"PALETES","quantidade":73,"categoria":"OPERAÇÃO"},
+{"produto":"CABO ALTA TENSÃO P/ TESTAR COMPACTADORA 10 MTS","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"AMORTECEDOR","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"FITA REFLETIVA","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"MANGUEIRA PARA COMPRESSOR","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"RETROVISOR","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"CABO PARA CHUPETA","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"BOLSA PARA PAINEL","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"FITA DE SEGURANÇA","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"MÁSCARA COM FILTRO 3M","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"CARTUCHOS PARA VAPORES","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"FITILHOS EM RÔLO","quantidade":4,"categoria":"OPERAÇÃO"},
+{"produto":"ALICATE PARA MÁQUINA DE SOLDA","quantidade":2,"categoria":"OPERAÇÃO"},
+{"produto":"MOLDURA DE PLACAS DE AVISOS PARA VEÍCULOS","quantidade":3,"categoria":"OPERAÇÃO"},
+{"produto":"CINTA DE SEGURANÇA","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"MAÇANETA PARA CAMINHÃO","quantidade":1,"categoria":"OPERAÇÃO"},
+{"produto":"FITAS LATERAIS REFLETIVAS","quantidade":63,"categoria":"OPERAÇÃO"}
+];
+
+const KEY  = 'estoque_app_v1';
+const KEYC = 'estoque_cats_v1';
+
+/* ---------- ARMAZENAMENTO ---------- */
+function load(){
+  try{
+    const s = localStorage.getItem(KEY);
+    if(s){
+      const arr = JSON.parse(s);
+      if(Array.isArray(arr)) return arr;
+    }
+  }catch(e){}
+  return SEED.map((d,i)=>({id:i+1,produto:d.produto,quantidade:d.quantidade,categoria:d.categoria}));
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(estoque)); }
+  catch(e){ toast('NÃO FOI POSSÍVEL SALVAR OS DADOS',true); }
+}
+function loadCats(){
+  try{ const s = localStorage.getItem(KEYC); if(s) return JSON.parse(s); }catch(e){}
+  return [];
+}
+function saveCats(){
+  try{ localStorage.setItem(KEYC, JSON.stringify(customCats)); }catch(e){}
+}
+
+let estoque = load();
+// Correção de categoria com erro de digitação em dados antigos
+estoque.forEach(p=>{ if(p.categoria==='MANUETNÇÃO') p.categoria='MANUTENÇÃO'; });
+save();
+let customCats = loadCats();
+
+function nextId(){ return estoque.reduce((m,p)=>Math.max(m,p.id),0)+1; }
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---------- CATEGORIAS ---------- */
+function allCats(){
+  return [...new Set([...estoque.map(p=>p.categoria).filter(Boolean),...customCats])].sort();
+}
+function addCat(){
+  const c = document.getElementById('f-newcat').value.trim().toUpperCase();
+  if(!c){ toast('INFORME A CATEGORIA',true); return; }
+  if(allCats().includes(c)){ toast('CATEGORIA JÁ EXISTE',true); return; }
+  customCats.push(c); saveCats();
+  document.getElementById('f-newcat').value='';
+  fillCatSelect(); listCats();
+  toast('CATEGORIA CADASTRADA');
+}
+function fillCatSelect(){
+  const sel = document.getElementById('f-cat');
+  const cur = sel.value;
+  const cats = allCats();
+  sel.innerHTML = cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(cur && cats.includes(cur)) sel.value = cur;
+}
+function listCats(){
+  document.getElementById('catlist-info').textContent = 'CATEGORIAS EXISTENTES: '+(allCats().join(', ')||'NENHUMA');
+}
+
+/* ---------- STATUS: <3 abaixo | 3-4 próximo | >4 ok ---------- */
+function statusOf(q){
+  if(q<3)  return {txt:'ABAIXO DO MÍNIMO',  cls:'st-red'};
+  if(q<=4) return {txt:'PRÓXIMO DO MÍNIMO', cls:'st-yellow'};
+  return {txt:'OK', cls:'st-green'};
+}
+
+/* ---------- AUTO-MAIÚSCULAS ---------- */
+document.addEventListener('input',e=>{
+  const t = e.target;
+  if((t.tagName==='INPUT' && (t.type==='text'||!t.type||t.type==='search')) || t.tagName==='TEXTAREA'){
+    const p = t.selectionStart;
+    t.value = t.value.toUpperCase();
+    try{ t.setSelectionRange(p,p); }catch(_){}
+  }
+});
+
+/* ---------- NAVEGAÇÃO ---------- */
+function go(view){
+  document.querySelectorAll('.menu button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+  document.querySelectorAll('.main > section').forEach(s=>s.classList.add('hidden'));
+  document.getElementById('view-'+view).classList.remove('hidden');
+  if(view==='inicio'){ renderCards(); fillCatFilter(); renderTable(); }
+  if(view==='cadastro'){ fillCatSelect(); listCats(); }
+  if(view==='entrada' || view==='saida'){ fillProdSelect(view); }
+}
+document.querySelectorAll('.menu button').forEach(b=>{
+  b.onclick = ()=>{
+    if(b.dataset.view==='relatorio'){ go('relatorio'); abrirRelatorio(); }
+    else go(b.dataset.view);
+  };
+});
+
+/* ---------- INÍCIO ---------- */
+function renderCards(){
+  let r=0,y=0,g=0;
+  estoque.forEach(p=>{
+    const s = statusOf(p.quantidade);
+    if(s.cls==='st-red') r++; else if(s.cls==='st-yellow') y++; else g++;
+  });
+  document.getElementById('c-total').textContent  = estoque.length;
+  document.getElementById('c-red').textContent    = r;
+  document.getElementById('c-yellow').textContent = y;
+  document.getElementById('c-green').textContent  = g;
+}
+function fillCatFilter(){
+  const sel = document.getElementById('fcat');
+  const cur = sel.value;
+  const cats = [...new Set(estoque.map(p=>p.categoria).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">TODAS AS CATEGORIAS</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value = cats.includes(cur) ? cur : '';
+}
+function renderTable(){
+  const q  = (document.getElementById('search').value||'').toUpperCase();
+  const fc = document.getElementById('fcat').value;
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  const rows = estoque
+    .filter(p=>(!q || p.produto.includes(q) || (p.categoria||'').includes(q)) && (!fc || p.categoria===fc))
+    .sort((a,b)=>a.quantidade-b.quantidade || a.produto.localeCompare(b.produto));
+  if(!rows.length){
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;padding:30px">NENHUM PRODUTO ENCONTRADO</td></tr>';
+    return;
+  }
+  rows.forEach(p=>{
+    const s = statusOf(p.quantidade);
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${esc(p.produto)}</td><td>${esc(p.categoria||'-')}</td>`+
+      `<td><span class="qty-pill">${p.quantidade}</span></td>`+
+      `<td class="status ${s.cls}">${s.txt}</td>`+
+      `<td><button class="btn small danger" onclick="delProd(${p.id})">EXCLUIR</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function delProd(id){
+  const p = estoque.find(x=>x.id===id);
+  if(!p) return;
+  if(confirm('EXCLUIR O PRODUTO "'+p.produto+'"?')){
+    estoque = estoque.filter(x=>x.id!==id);
+    save(); renderCards(); fillCatFilter(); renderTable();
+    toast('PRODUTO EXCLUÍDO');
+  }
+}
+
+/* ---------- CADASTRO ---------- */
+function cadastrar(){
+  const nome = document.getElementById('f-nome').value.trim().toUpperCase();
+  const cat  = document.getElementById('f-cat').value.trim().toUpperCase();
+  const qtd  = Math.max(0, parseInt(document.getElementById('f-qtd').value)||0);
+  if(!nome){ toast('INFORME O NOME DO PRODUTO',true); return; }
+  if(!cat){ toast('CADASTRE UMA CATEGORIA PRIMEIRO',true); return; }
+  if(estoque.some(p=>p.produto===nome)){ toast('PRODUTO JÁ CADASTRADO',true); return; }
+  estoque.push({id:nextId(),produto:nome,quantidade:qtd,categoria:cat});
+  save();
+  document.getElementById('f-nome').value='';
+  document.getElementById('f-qtd').value='0';
+  toast('PRODUTO CADASTRADO');
+  go('inicio');
+}
+
+/* ---------- ENTRADA / SAÍDA ---------- */
+function fillProdSelect(view, keepId){
+  const sel = document.getElementById(view==='entrada'?'e-prod':'s-prod');
+  const arr = [...estoque].sort((a,b)=>a.produto.localeCompare(b.produto));
+  sel.innerHTML = arr.map(p=>`<option value="${p.id}">${esc(p.produto)} (${p.quantidade})</option>`).join('');
+  if(keepId && arr.some(p=>p.id==keepId)) sel.value = keepId;
+  updInfo(view);
+  sel.onchange = ()=>updInfo(view);
+}
+function updInfo(view){
+  const sel  = document.getElementById(view==='entrada'?'e-prod':'s-prod');
+  const info = document.getElementById(view==='entrada'?'e-info':'s-info');
+  const p = estoque.find(x=>x.id==sel.value);
+  if(p){
+    const s = statusOf(p.quantidade);
+    info.innerHTML = `ESTOQUE ATUAL: <b>${p.quantidade}</b> — STATUS: <b class="${s.cls}">${s.txt}</b>`;
+  }else info.textContent = '';
+}
+function movimentar(dir){
+  const view = dir>0 ? 'entrada' : 'saida';
+  const sel  = document.getElementById(dir>0?'e-prod':'s-prod');
+  const qtd  = parseInt(document.getElementById(dir>0?'e-qtd':'s-qtd').value)||0;
+  const p = estoque.find(x=>x.id==sel.value);
+  if(!p){ toast('SELECIONE UM PRODUTO',true); return; }
+  if(qtd<=0){ toast('QUANTIDADE INVÁLIDA',true); return; }
+  if(dir<0 && qtd>p.quantidade){ toast('ESTOQUE INSUFICIENTE',true); return; }
+  p.quantidade += dir*qtd;
+  save();
+  fillProdSelect(view, p.id);
+  toast(dir>0?'ENTRADA REGISTRADA':'SAÍDA REGISTRADA');
+}
+
+/* ---------- RELATÓRIO PDF ---------- */
+function abrirRelatorio(){ document.getElementById('ov-rel').classList.add('show'); }
+function fecharModal(){ document.getElementById('ov-rel').classList.remove('show'); }
+
+function gerarPDF(mode){
+  fecharModal();
+
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    toast('BIBLIOTECA DE PDF NÃO CARREGOU. VERIFIQUE A INTERNET',true);
+    return;
+  }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF('p','mm','a4');
+  if(typeof doc.autoTable !== 'function'){
+    toast('PLUGIN DE TABELA NÃO CARREGOU. VERIFIQUE A INTERNET',true);
+    return;
+  }
+
+  // Abre a aba ANTES de gerar, para o navegador não bloquear o pop-up
+  let win = null;
+  if(mode!=='download') win = window.open('','_blank');
+
+  try{
+    const now = new Date();
+    const dt = now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR');
+
+    doc.setTextColor(0,0,0); doc.setFontSize(16); doc.setFont(undefined,'bold');
+    doc.text('RELATÓRIO DE ESTOQUE',14,16);
+    doc.setFontSize(9); doc.setFont(undefined,'normal');
+    doc.text('GERADO EM: '+dt,14,23);
+
+    const cats = [...new Set(estoque.map(p=>p.categoria||'SEM CATEGORIA'))].sort();
+    doc.setFont(undefined,'bold');
+    doc.text('TOTAL DE CATEGORIAS: '+cats.length+'     TOTAL DE ITENS: '+estoque.length,14,29);
+    doc.setFont(undefined,'normal');
+    doc.setDrawColor(0,0,0); doc.line(14,32,196,32);
+
+    let y = 37;
+    cats.forEach(cat=>{
+      const items = estoque
+        .filter(p=>(p.categoria||'SEM CATEGORIA')===cat)
+        .sort((a,b)=>a.produto.localeCompare(b.produto));
+      const totalQtd = items.reduce((s,p)=>s+p.quantidade,0);
+      doc.autoTable({
+        startY: y,
+        head: [
+          [{content:cat+'  ('+items.length+' PRODUTOS)',colSpan:2,styles:{fillColor:[0,0,0],textColor:[255,255,255],halign:'left'}}],
+          ['PRODUTO','QUANTIDADE']
+        ],
+        body: items.map(p=>[p.produto,String(p.quantidade)]),
+        foot: [[{content:'SUBTOTAL DE UNIDADES',styles:{halign:'right'}},String(totalQtd)]],
+        theme: 'grid',
+        styles: {fontSize:9,cellPadding:2.5,textColor:[0,0,0],lineColor:[0,0,0],lineWidth:0.2},
+        headStyles: {fillColor:[255,255,255],textColor:[0,0,0],fontStyle:'bold'},
+        footStyles: {fillColor:[255,255,255],textColor:[0,0,0],fontStyle:'bold'},
+        columnStyles: {0:{cellWidth:140},1:{cellWidth:42,halign:'center'}}
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    });
+
+    const pc = doc.internal.getNumberOfPages();
+    for(let i=1;i<=pc;i++){
+      doc.setPage(i); doc.setFontSize(8); doc.setTextColor(0,0,0);
+      doc.text('PÁGINA '+i+' DE '+pc,196,290,{align:'right'});
+    }
+
+    if(mode==='download'){
+      doc.save('relatorio-estoque.pdf');
+      toast('PDF BAIXADO');
+      return;
+    }
+
+    if(mode==='print') doc.autoPrint();
+    const url = doc.output('bloburl');
+
+    if(win){
+      win.location.href = url;
+      toast(mode==='print' ? 'ENVIADO PARA IMPRESSÃO' : 'RELATÓRIO GERADO');
+    }else{
+      // Pop-up bloqueado: baixa o arquivo como alternativa
+      doc.save('relatorio-estoque.pdf');
+      toast('POP-UP BLOQUEADO. PDF BAIXADO',true);
+    }
+  }catch(err){
+    if(win) win.close();
+    console.error(err);
+    toast('ERRO AO GERAR O PDF',true);
+  }
+}
+
+/* ---------- TOAST ---------- */
+let tt;
+function toast(msg,err){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show'+(err?' err':'');
+  clearTimeout(tt);
+  tt = setTimeout(()=>t.className='toast',2600);
+}
+
+document.getElementById('ov-rel').addEventListener('click',e=>{ if(e.target.id==='ov-rel') fecharModal(); });
+
+go('inicio');
+</script>
+</body>
+</html>
