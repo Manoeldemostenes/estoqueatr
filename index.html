@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GESTÃO DE ESTOQUE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--y:#b8860b;--yl:#d4a017;--b:#1e4fa3;--bk:#0d0d0d;--bk2:#1a1a1a;--bk3:#262626;--t:#eee}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:var(--bk);color:var(--t);display:flex;min-height:100vh}
+aside{width:230px;background:var(--bk2);border-right:3px solid var(--y);padding:16px 0;flex-shrink:0}
+aside h1{font-size:16px;color:var(--yl);text-align:center;margin:0 10px 18px;letter-spacing:1px}
+aside button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--t);padding:13px 20px;font-size:14px;cursor:pointer;border-left:4px solid transparent}
+aside button:hover{background:var(--bk3)}
+aside button.on{background:var(--bk3);border-left-color:var(--yl);color:var(--yl);font-weight:bold}
+main{flex:1;padding:24px;overflow:auto}
+h2{margin-top:0;color:var(--yl);border-bottom:2px solid var(--b);padding-bottom:8px}
+.card{background:var(--bk2);border:1px solid var(--bk3);border-radius:8px;padding:16px;margin-bottom:18px}
+label{display:block;font-size:12px;color:#aaa;margin:8px 0 4px}
+input,select{width:100%;max-width:340px;padding:9px;background:var(--bk);color:var(--t);border:1px solid #444;border-radius:5px;font-size:14px}
+input:focus,select:focus{outline:2px solid var(--b)}
+.btn{background:var(--y);color:#000;border:0;padding:10px 18px;border-radius:5px;font-weight:bold;cursor:pointer;margin:12px 8px 0 0;font-size:13px}
+.btn:hover{background:var(--yl)}.btn.blue{background:var(--b);color:#fff}.btn.blue:hover{background:#2a62c4}
+.btn.del{background:#7a1f1f;color:#fff;padding:4px 10px;margin:0;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--b);color:#fff;text-align:left;padding:8px}
+td{padding:8px;border-bottom:1px solid var(--bk3)}
+.low{color:#ff6b6b;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+.card h3{margin:0 0 12px;color:var(--yl);font-size:15px}
+.kpi{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.kpi div{background:var(--bk);border:1px solid var(--bk3);border-top:3px solid var(--b);border-radius:6px;padding:8px 12px;font-size:11px;color:#aaa}
+.kpi b{display:block;font-size:18px;color:var(--yl)}
+.rw{margin-bottom:11px;font-size:12px}
+.rw .nm{display:flex;justify-content:space-between;margin-bottom:3px}
+.bar{background:var(--bk3);border-radius:4px;height:14px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--b),var(--yl));border-radius:4px}
+.rw small{color:#999}
+.btn.edit{background:var(--b);color:#fff;padding:4px 10px;margin:0 6px 0 0;font-size:12px}
+tr.baixo td{background:#3a1f1f}
+.tag{background:#c0392b;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:bold;white-space:nowrap}
+.ok{color:#6fcf97;font-size:12px}
+.cb{position:relative;max-width:340px}.cb input{max-width:100%}
+.lista{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--bk2);border:1px solid var(--y);border-radius:5px;max-height:220px;overflow:auto}
+.lista div{padding:9px;cursor:pointer;font-size:13px}
+.lista div:hover,.lista div.hl{background:var(--b);color:#fff}
+.lista .vazio{color:#999;cursor:default}
+.sec{display:none}.sec.on{display:block}
+@media(max-width:700px){body{flex-direction:column}aside{width:100%;display:flex;flex-wrap:wrap;padding:6px}aside h1{width:100%;margin:6px}aside button{width:auto;padding:8px 12px;border-left:0}}
+</style>
+</head>
+<body>
+<aside>
+  <h1>GESTÃO DE ESTOQUE</h1>
+  <button data-s="dashboard" class="on">📊 Dashboard</button>
+  <button data-s="produtos">📦 Produtos</button>
+  <button data-s="categorias">🏷️ Categorias</button>
+  <button data-s="entrada">⬇️ Entrada de Produtos</button>
+  <button data-s="saida">⬆️ Saída de Produtos</button>
+  <button data-s="estoque">📋 Estoque Atual</button>
+  <button data-s="relatorios">📄 Relatórios (PDF)</button>
+  <button data-s="backup">💾 Backup</button>
+</aside>
+<main>
+
+<section id="dashboard" class="sec on">
+  <h2>Dashboard - Produtos com Mais Entradas</h2>
+  <div class="grid">
+    <div class="card"><h3>Últimos 30 dias</h3><div id="d30"></div></div>
+    <div class="card"><h3>Últimos 60 dias</h3><div id="d60"></div></div>
+  </div>
+</section>
+
+<section id="produtos" class="sec">
+  <h2>Cadastro de Produtos</h2>
+  <div class="card">
+    <label>Nome do produto</label><input id="pNome">
+    <label>Categoria</label><select id="pCat"></select>
+    <label>Unidade</label>
+    <select id="pUn"><option>KG</option><option>UND</option><option>FD</option><option>CX</option><option>MT</option></select><br>
+    <button class="btn" id="btnProd" onclick="addProduto()">Cadastrar</button><button class="btn blue" id="btnCancel" style="display:none" onclick="cancelEdit()">Cancelar edição</button>
+  </div>
+  <div class="card"><table id="tProd"></table></div>
+</section>
+
+<section id="categorias" class="sec">
+  <h2>Cadastro de Categorias</h2>
+  <div class="card">
+    <label>Nome da categoria</label><input id="cNome"><br>
+    <button class="btn" onclick="addCat()">Cadastrar</button>
+  </div>
+  <div class="card"><table id="tCat"></table></div>
+</section>
+
+<section id="entrada" class="sec">
+  <h2>Entrada de Produtos</h2>
+  <div class="card">
+    <label>Produto (digite para buscar)</label>
+    <div class="cb"><input id="eBusca" placeholder="Digite o nome do produto..." autocomplete="off"><div class="lista" id="eLista"></div></div>
+    <select id="eProd" style="display:none"></select>
+    <small id="eInfo" style="color:var(--yl)"></small>
+    <label>Quantidade</label><input id="eQtd" type="number" min="0" step="any">
+    <label>Data da entrada</label><input id="eData" type="date"><br>
+    <button class="btn" onclick="mov('entrada')">Registrar entrada</button>
+  </div>
+  <div class="card"><table id="tEnt"></table></div>
+</section>
+
+<section id="saida" class="sec">
+  <h2>Saída de Produtos</h2>
+  <div class="card">
+    <label>Produto (digite para buscar)</label>
+    <div class="cb"><input id="sBusca" placeholder="Digite o nome do produto..." autocomplete="off"><div class="lista" id="sLista"></div></div>
+    <select id="sProd" style="display:none"></select>
+    <small id="sInfo" style="color:var(--yl)"></small>
+    <label>Quantidade</label><input id="sQtd" type="number" min="0" step="any">
+    <label>Data da saída</label><input id="sData" type="date"><br>
+    <button class="btn" onclick="mov('saida')">Registrar saída</button>
+  </div>
+  <div class="card"><table id="tSai"></table></div>
+</section>
+
+<section id="estoque" class="sec">
+  <h2>Estoque Atual</h2>
+  <div class="card">
+    <label>Buscar produto</label>
+    <input id="busca" placeholder="Digite o nome ou a categoria..." oninput="renderEst()">
+    <div class="kpi" id="kEst" style="margin-top:14px"></div>
+  </div>
+  <div class="card"><table id="tEst"></table></div>
+</section>
+
+<section id="relatorios" class="sec">
+  <h2>Relatórios em PDF</h2>
+  <div class="card">
+    <button class="btn" onclick="pdfEstoque()">📄 PDF do Estoque Atual</button>
+    <button class="btn blue" onclick="pdfTop30()">📈 PDF Mais Entradas (últimos 30 dias)</button>
+  </div>
+  </section>
+
+<section id="backup" class="sec">
+  <h2>Backup dos Dados</h2>
+  <div class="card">
+    <p>Baixe todos os dados em um arquivo .json ou carregue um backup salvo.</p>
+    <button class="btn" onclick="exportar()">⬇️ Exportar Backup</button>
+    <button class="btn blue" onclick="document.getElementById('arq').click()">⬆️ Importar Backup</button>
+    <input type="file" id="arq" accept=".json,application/json" hidden onchange="importar(event)">
+  </div>
+</section>
+
+</main>
+<script>
+const KEY='gestao_estoque_v1';
+let db;
+try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!db||!db.produtos)db={categorias:[],produtos:[],movs:[]};
+const $=id=>document.getElementById(id);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+const hoje=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+const fd=s=>s.split('-').reverse().join('/');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const MIN=2;let editId=null;
+const ordena=(a,b)=>a.cat.localeCompare(b.cat,'pt-BR')||a.nome.localeCompare(b.nome,'pt-BR');
+const norm=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const prod=id=>db.produtos.find(p=>p.id===id);
+const saldo=id=>db.movs.filter(m=>m.p===id).reduce((a,m)=>a+(m.t==='entrada'?m.q:-m.q),0);
+
+document.querySelectorAll('aside button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('aside button,.sec').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$(b.dataset.s).classList.add('on');render();
+});
+
+function addCat(){
+  const n=$('cNome').value.trim().toUpperCase();
+  if(!n)return alert('Informe o nome da categoria.');
+  if(db.categorias.includes(n))return alert('Categoria já cadastrada.');
+  db.categorias.push(n);db.categorias.sort();$('cNome').value='';save();render();
+}
+function delCat(n){
+  if(db.produtos.some(p=>p.cat===n))return alert('Há produtos nesta categoria.');
+  if(confirm('Excluir categoria?')){db.categorias=db.categorias.filter(c=>c!==n);save();render()}
+}
+function addProduto(){
+  const n=$('pNome').value.trim().toUpperCase();
+  if(!n)return alert('Informe o nome do produto.');
+  if(!$('pCat').value)return alert('Cadastre uma categoria primeiro.');
+  if(editId){const p=prod(editId);p.nome=n;p.cat=$('pCat').value;p.un=$('pUn').value;cancelEdit(true)}
+  else db.produtos.push({id:uid(),nome:n,cat:$('pCat').value,un:$('pUn').value});
+  $('pNome').value='';save();render();
+}
+function editProd(id){
+  const p=prod(id);editId=id;
+  $('pNome').value=p.nome;$('pCat').value=p.cat;$('pUn').value=p.un;
+  $('btnProd').textContent='Salvar alterações';$('btnCancel').style.display='inline-block';
+  $('pNome').focus();window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelEdit(silent){
+  editId=null;$('btnProd').textContent='Cadastrar';$('btnCancel').style.display='none';
+  $('pNome').value='';if(!silent)render();
+}
+function delProd(id){
+  if(confirm('Excluir produto e seus lançamentos?')){
+    if(editId===id)cancelEdit(true);
+    db.produtos=db.produtos.filter(p=>p.id!==id);db.movs=db.movs.filter(m=>m.p!==id);save();render();
+  }
+}
+function mov(t){
+  const k=t==='entrada'?'e':'s';
+  const p=$(k+'Prod').value,q=parseFloat($(k+'Qtd').value),d=$(k+'Data').value;
+  if(!p)return alert('Selecione um produto.');
+  if(!(q>0))return alert('Informe uma quantidade válida.');
+  if(!d)return alert('Informe a data.');
+  if(t==='saida'&&q>saldo(p))return alert('Saldo insuficiente. Estoque atual: '+saldo(p));
+  db.movs.push({id:uid(),t,p,q,d});$(k+'Qtd').value='';$(k+'Busca').value='';$(k+'Prod').value='';save();render();
+}
+function info(k){
+  const p=prod($(k+'Prod').value);
+  $(k+'Info').textContent=p?`Estoque atual: ${saldo(p.id)} ${p.un}`:'';
+}
+function combo(k){
+  const inp=$(k+'Busca'),lst=$(k+'Lista'),sel=$(k+'Prod');let idx=-1;
+  const itens=()=>[...lst.querySelectorAll('div[data-v]')];
+  function mostrar(){
+    const q=norm(inp.value.trim());
+    const l=[...sel.options].filter(o=>!q||norm(o.textContent).includes(q));
+    lst.innerHTML=l.map(o=>`<div data-v="${o.value}">${esc(o.textContent)}</div>`).join('')||'<div class="vazio">Nenhum produto encontrado</div>';
+    lst.style.display='block';idx=-1;
+  }
+  function escolher(v){
+    sel.value=v;inp.value=sel.selectedOptions[0].textContent;lst.style.display='none';info(k);
+    $(k+'Qtd').focus();
+  }
+  inp.addEventListener('input',()=>{sel.value='';info(k);mostrar()});
+  inp.addEventListener('focus',mostrar);
+  inp.addEventListener('keydown',e=>{
+    const it=itens();
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();if(lst.style.display!=='block')mostrar();
+      const n=itens();if(!n.length)return;
+      idx=(idx+(e.key==='ArrowDown'?1:-1)+n.length)%n.length;
+      n.forEach((x,i)=>x.classList.toggle('hl',i===idx));n[idx].scrollIntoView({block:'nearest'});
+    }else if(e.key==='Enter'){
+      e.preventDefault();
+      if(idx>=0)escolher(it[idx].dataset.v);else if(it.length===1)escolher(it[0].dataset.v);
+    }else if(e.key==='Escape')lst.style.display='none';
+  });
+  lst.addEventListener('mousedown',e=>{const d=e.target.closest('div[data-v]');if(d){e.preventDefault();escolher(d.dataset.v)}});
+  document.addEventListener('click',e=>{if(!e.target.closest('#'+k+'Busca')&&!e.target.closest('#'+k+'Lista'))lst.style.display='none'});
+}
+function delMov(id){if(confirm('Excluir lançamento?')){db.movs=db.movs.filter(m=>m.id!==id);save();render()}}
+
+function tabMov(t,el){
+  const l=db.movs.filter(m=>m.t===t&&prod(m.p)).sort((a,b)=>b.d.localeCompare(a.d));
+  $(el).innerHTML='<tr><th>Data</th><th>Produto</th><th>Qtd</th><th></th></tr>'+(l.map(m=>
+    `<tr><td>${fd(m.d)}</td><td>${esc(prod(m.p).nome)}</td><td>${m.q} ${prod(m.p).un}</td><td><button class="btn del" onclick="delMov('${m.id}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="4">Nenhum lançamento.</td></tr>');
+}
+function render(){
+  const cv=$('pCat').value;
+  $('pCat').innerHTML=db.categorias.map(c=>`<option>${esc(c)}</option>`).join('');
+  if(cv)$('pCat').value=cv;
+  const opts=db.produtos.slice().sort(ordena).map(p=>`<option value="${p.id}">${esc(p.cat)} - ${esc(p.nome)} (${p.un})</option>`).join('');
+  ['eProd','sProd'].forEach(i=>{const v=$(i).value;$(i).innerHTML=opts;$(i).value=v});
+  info('e');info('s');
+  if(!$('eData').value)$('eData').value=hoje();
+  if(!$('sData').value)$('sData').value=hoje();
+  $('tCat').innerHTML='<tr><th>Categoria</th><th></th></tr>'+(db.categorias.map(c=>`<tr><td>${esc(c)}</td><td><button class="btn del" onclick="delCat('${esc(c)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="2">Nenhuma categoria.</td></tr>');
+  $('tProd').innerHTML='<tr><th>Produto</th><th>Categoria</th><th>Un.</th><th>Saldo</th><th></th></tr>'+(db.produtos.slice().sort(ordena).map(p=>`<tr><td>${esc(p.nome)}</td><td>${esc(p.cat)}</td><td>${p.un}</td><td>${saldo(p.id)}</td><td><button class="btn edit" onclick="editProd('${p.id}')">Editar</button><button class="btn del" onclick="delProd('${p.id}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="5">Nenhum produto.</td></tr>');
+  dash(30,'d30');dash(60,'d60');
+  tabMov('entrada','tEnt');tabMov('saida','tSai');
+  renderEst();
+}
+
+function renderEst(){
+  const q=norm($('busca').value.trim());
+  const todos=db.produtos.slice().sort(ordena);
+  const l=todos.filter(p=>!q||norm(p.nome).includes(q)||norm(p.cat).includes(q));
+  const baixos=todos.filter(p=>saldo(p.id)<MIN).length;
+  $('kEst').innerHTML=`<div><b>${todos.length}</b>produtos cadastrados</div><div><b style="color:${baixos?'#ff6b6b':'#6fcf97'}">${baixos}</b>abaixo do mínimo (${MIN})</div>`;
+  $('tEst').innerHTML='<tr><th>Categoria</th><th>Produto</th><th>Saldo</th><th>Situação</th></tr>'+(l.map(p=>{
+    const s=saldo(p.id),b=s<MIN;
+    return `<tr class="${b?'baixo':''}"><td>${esc(p.cat)}</td><td>${esc(p.nome)}</td><td class="${b?'low':''}">${s} ${p.un}</td><td>${b?`<span class="tag">⚠ ${s<=0?'ZERADO':'ABAIXO DO MÍNIMO'}</span>`:'<span class="ok">OK</span>'}</td></tr>`}).join('')||'<tr><td colspan="4">Nenhum produto encontrado.</td></tr>');
+}
+function dash(dias,el){
+  const lim=new Date();lim.setDate(lim.getDate()-dias);lim.setMinutes(lim.getMinutes()-lim.getTimezoneOffset());
+  const ini=lim.toISOString().slice(0,10),r={};
+  db.movs.filter(m=>m.t==='entrada'&&m.d>=ini&&prod(m.p)).forEach(m=>{const x=r[m.p]=r[m.p]||{q:0,n:0};x.q+=m.q;x.n++});
+  const l=Object.entries(r).sort((a,b)=>b[1].q-a[1].q);
+  if(!l.length){$(el).innerHTML='<p>Nenhuma entrada no período.</p>';return}
+  const tot=l.reduce((a,[,v])=>a+v.q,0),max=l[0][1].q,nm=l.reduce((a,[,v])=>a+v.n,0);
+  const f=n=>(Math.round(n*100)/100).toString().replace('.',',');
+  $(el).innerHTML=`<div class="kpi"><div><b>${f(tot)}</b>total de itens</div><div><b>${nm}</b>entradas</div><div><b>${f(tot/dias)}</b>média por dia</div><div><b>${f(tot/l.length)}</b>média por produto</div></div>`+
+  l.slice(0,10).map(([id,v],i)=>{const p=prod(id);return `<div class="rw"><div class="nm"><span>${i+1}. ${esc(p.nome)}</span><span>${f(v.q)} ${p.un}</span></div><div class="bar"><i style="width:${v.q/max*100}%"></i></div><small>média de ${f(v.q/dias)} ${p.un}/dia · ${f(v.q/v.n)} ${p.un} por entrada</small></div>`}).join('');
+}
+
+/* PDF: Arial/Helvetica 9, sem tabela, monocromático */
+function novoPdf(titulo){
+  if(!window.jspdf){alert('Biblioteca de PDF não carregou. Verifique a internet.');return null}
+  const doc=new jspdf.jsPDF();doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(0);
+  doc.text('GESTÃO DE ESTOQUE - '+titulo,14,16);
+  doc.text('Gerado em '+fd(hoje()),14,22);
+  return {doc,y:32};
+}
+function linha(o,txt){
+  if(o.y>285){o.doc.addPage();o.y=16}
+  o.doc.text(txt,14,o.y);o.y+=5;
+}
+function pdfEstoque(){
+  const o=novoPdf('ESTOQUE ATUAL');if(!o)return;
+  const l=db.produtos.slice().sort((a,b)=>a.cat.localeCompare(b.cat)||a.nome.localeCompare(b.nome));
+  if(!l.length)linha(o,'Nenhum produto cadastrado.');
+  l.forEach(p=>linha(o,`${p.nome}  |  ${p.cat}  |  ${saldo(p.id)} ${p.un}${saldo(p.id)<MIN?'  |  *ABAIXO DO MÍNIMO*':''}`));
+  o.doc.save('estoque-atual.pdf');
+}
+function pdfTop30(){
+  const o=novoPdf('PRODUTOS COM MAIS ENTRADAS NOS ÚLTIMOS 30 DIAS');if(!o)return;
+  const lim=new Date();lim.setDate(lim.getDate()-30);lim.setMinutes(lim.getMinutes()-lim.getTimezoneOffset());
+  const ini=lim.toISOString().slice(0,10),r={};
+  db.movs.filter(m=>m.t==='entrada'&&m.d>=ini&&prod(m.p)).forEach(m=>{(r[m.p]=r[m.p]||{q:0,d:[]}).q+=m.q;r[m.p].d.push(m)});
+  const l=Object.entries(r).sort((a,b)=>b[1].q-a[1].q);
+  if(!l.length)linha(o,'Nenhuma entrada nos últimos 30 dias.');
+  l.forEach(([id,v],i)=>{
+    const p=prod(id);linha(o,`${i+1}. ${p.nome}  |  Total: ${v.q} ${p.un}`);
+    v.d.sort((a,b)=>a.d.localeCompare(b.d)).forEach(m=>linha(o,`      ${fd(m.d)}  -  ${m.q} ${p.un}`));
+  });
+  o.doc.save('mais-entradas-30-dias.pdf');
+}
+
+/* Backup */
+function exportar(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));
+  a.download='backup-estoque-'+hoje()+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importar(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!Array.isArray(d.categorias)||!Array.isArray(d.produtos)||!Array.isArray(d.movs))throw 0;
+      if(!confirm('Isso substituirá os dados atuais pelos do backup. Continuar?'))return;
+      db=d;save();render();alert('Backup importado com sucesso!');
+    }catch(e){alert('Arquivo de backup inválido.')}
+    ev.target.value='';
+  };
+  r.readAsText(f);
+}
+combo('e');combo('s');
+render();
+</script>
+</body>
+</html>
